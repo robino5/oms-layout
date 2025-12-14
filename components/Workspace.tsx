@@ -8,18 +8,10 @@ import React, {
   useState,
 } from "react";
 import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragOverlay,
-  useDraggable,
-  useDroppable,
-  DragStartEvent,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+  ResizablePanel,
+  ResizablePanelGroup,
+  ResizableHandle,
+} from "@/components/ui/resizable";
 import { FaSave } from "react-icons/fa";
 import WidgetBox from "./WidgetBox";
 import { setCookie, getCookie } from "../utils/cookieUtils";
@@ -59,12 +51,10 @@ type WorkspaceProps = {
   onReset: () => void;
 };
 
-/* mock widget components map
-   Replace these names or imports with your real widget components if needed.
-*/
+/* Widget components map */
 const widgetComponents: Record<
   WidgetType,
-  { component: React.ComponentType; name: string }
+  { component: React.ComponentType<{ widgetId?: string | null }>; name: string }
 > = {
   chart: { component: ChartWidget, name: "Chart" },
   table: { component: StockPriceTable, name: "Stock Table" },
@@ -72,10 +62,9 @@ const widgetComponents: Record<
   depth: { component: MarketDepth, name: "Market Depth" },
 };
 
-/* -------------------- DroppableCell (memoized) -------------------- */
+/* -------------------- WidgetCell (memoized) -------------------- */
 
-type DroppableCellProps = {
-  id: string; // like "cell-0"
+type WidgetCellProps = {
   index: number;
   widget: WidgetItem;
   showContextMenu: (e: React.MouseEvent, index: number) => void;
@@ -83,34 +72,18 @@ type DroppableCellProps = {
   removeWidget: (index: number) => void;
 };
 
-const DroppableCell: React.FC<DroppableCellProps> = React.memo(
-  function DroppableCell({ id, index, widget, showContextMenu, openInNewTab, removeWidget }) {
-    const { setNodeRef, isOver } = useDroppable({ id });
-    const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } =
-      useDraggable({
-        id,
-        disabled: !widget,
-      });
-
-    const style = transform
-      ? {
-        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-        opacity: isDragging ? 0.5 : 1,
-      }
-      : undefined;
-
+const WidgetCell: React.FC<WidgetCellProps> = React.memo(
+  function WidgetCell({ index, widget, showContextMenu, openInNewTab, removeWidget }) {
     return (
       <div
-        ref={setNodeRef}
-        className={`bg-gray-800 rounded-lg border ${isOver ? "border-yellow-500 bg-gray-700" : "border-gray-700"
-          } relative overflow-hidden h-full`}
+        className="bg-gray-800 rounded-lg border border-gray-700 relative overflow-hidden h-full"
         onContextMenu={(e) => {
           e.preventDefault();
           showContextMenu(e, index);
         }}
       >
         {widget ? (
-          <div ref={setDragRef} style={style} {...attributes} {...listeners} className="h-full">
+          <div className="h-full">
             <WidgetBox
               widget={widget}
               index={index}
@@ -142,9 +115,6 @@ const Workspace: React.FC<WorkspaceProps> = ({ layout, onReset }) => {
     () => Array(initialCount).fill(null)
   );
 
-  // active drag id like "cell-2"
-  const [activeId, setActiveId] = useState<string | null>(null);
-
   const [contextMenu, setContextMenu] = useState({
     show: false,
     x: 0,
@@ -152,13 +122,6 @@ const Workspace: React.FC<WorkspaceProps> = ({ layout, onReset }) => {
     cellIndex: -1,
   });
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
-
-  // DnD sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    })
-  );
 
   /* ------------------ Persist / Load layout ------------------ */
   const saveLayout = useCallback(async () => {
@@ -248,42 +211,6 @@ const Workspace: React.FC<WorkspaceProps> = ({ layout, onReset }) => {
     [removeWidgetColor]
   );
 
-  /* ------------------ Drag handlers ------------------ */
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(String(event.active.id));
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) {
-      setActiveId(null);
-      return;
-    }
-
-    const parseIndex = (id: string | number) => {
-      const s = String(id).replace("cell-", "");
-      const n = parseInt(s, 10);
-      return Number.isNaN(n) ? -1 : n;
-    };
-
-    const activeIndex = parseIndex(active.id);
-    const overIndex = parseIndex(over.id);
-
-    if (activeIndex >= 0 && overIndex >= 0 && widgets[activeIndex]) {
-      setWidgets((prev) => {
-        const copy = [...prev];
-        const tmp = copy[activeIndex];
-        copy[activeIndex] = copy[overIndex];
-        copy[overIndex] = tmp;
-        return copy;
-      });
-    }
-
-    setActiveId(null);
-  };
-
-  const handleDragCancel = () => setActiveId(null);
-
   /* ------------------ Open widget in new tab ------------------ */
   const openInNewTab = useCallback((widget: NonNullable<WidgetItem>) => {
     const url = `/widget?type=${widget.type}&id=${widget.id}`;
@@ -312,20 +239,19 @@ const Workspace: React.FC<WorkspaceProps> = ({ layout, onReset }) => {
         for (let c = 0; c < layout.cols; c++) {
           const index = r * layout.cols + c;
           colsInRow.push(
-            <Panel key={`cell-${index}`} defaultSize={100 / layout.cols} minSize={10}>
-              <DroppableCell
-                id={`cell-${index}`}
+            <ResizablePanel key={`cell-${index}`} defaultSize={100 / layout.cols} minSize={20}>
+              <WidgetCell
                 index={index}
                 widget={widgets[index]}
                 showContextMenu={showContextMenu}
                 openInNewTab={openInNewTab}
                 removeWidget={removeWidget}
               />
-            </Panel>
+            </ResizablePanel>
           );
           if (c < layout.cols - 1) {
             colsInRow.push(
-              <PanelResizeHandle
+              <ResizableHandle
                 key={`resize-h-${r}-${c}`}
                 className="w-1 bg-gray-700 hover:bg-yellow-500 transition-colors"
               />
@@ -334,14 +260,14 @@ const Workspace: React.FC<WorkspaceProps> = ({ layout, onReset }) => {
         }
 
         rows.push(
-          <Panel key={`row-${r}`} defaultSize={100 / layout.rows} minSize={10}>
-            <PanelGroup direction="horizontal">{colsInRow}</PanelGroup>
-          </Panel>
+          <ResizablePanel key={`row-${r}`} defaultSize={100 / layout.rows} minSize={20}>
+            <ResizablePanelGroup direction="horizontal">{colsInRow}</ResizablePanelGroup>
+          </ResizablePanel>
         );
 
         if (r < layout.rows - 1) {
           rows.push(
-            <PanelResizeHandle
+            <ResizableHandle
               key={`resize-v-${r}`}
               className="h-1 bg-gray-700 hover:bg-yellow-500 transition-colors"
             />
@@ -350,98 +276,39 @@ const Workspace: React.FC<WorkspaceProps> = ({ layout, onReset }) => {
       }
 
       return (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          onDragCancel={handleDragCancel}
-        >
-          <PanelGroup direction="vertical" className="h-full">
-            {rows}
-          </PanelGroup>
-
-          <DragOverlay>
-            {activeId ? (
-              (() => {
-                const idx = parseInt(activeId.replace("cell-", ""), 10);
-                const w = widgets[idx];
-                if (!w) return null;
-                return (
-                  <div className="bg-gray-800 rounded-lg border border-yellow-500 opacity-80">
-                    <WidgetBox
-                      widget={w}
-                      index={idx}
-                      openInNewTab={openInNewTab}
-                      removeWidget={removeWidget}
-                      Component={widgetComponents[w.type].component}
-                    />
-                  </div>
-                );
-              })()
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+        <ResizablePanelGroup direction="vertical" className="h-full">
+          {rows}
+        </ResizablePanelGroup>
       );
     }
 
     // Span-based grid -> CSS grid
     return (
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-        onDragCancel={handleDragCancel}
+      <div
+        className="grid h-full gap-2"
+        style={{
+          gridTemplateColumns: `repeat(${layout.cols}, 1fr)`,
+          gridTemplateRows: `repeat(${layout.rows}, 1fr)`,
+        }}
       >
-        <div
-          className="grid h-full gap-2"
-          style={{
-            gridTemplateColumns: `repeat(${layout.cols}, 1fr)`,
-            gridTemplateRows: `repeat(${layout.rows}, 1fr)`,
-          }}
-        >
-          {layout.spans!.map((span, index) => (
-            <div
-              key={`cell-${index}`}
-              style={{
-                gridColumn: `${span.col + 1} / span ${span.colSpan}`,
-                gridRow: `${span.row + 1} / span ${span.rowSpan}`,
-              }}
-            >
-              <DroppableCell
-                id={`cell-${index}`}
-                index={index}
-                widget={widgets[index]}
-                showContextMenu={showContextMenu}
-                openInNewTab={openInNewTab}
-                removeWidget={removeWidget}
-              />
-            </div>
-          ))}
-        </div>
-
-        <DragOverlay>
-          {activeId ? (
-            (() => {
-              const idx = parseInt(activeId.replace("cell-", ""), 10);
-              const w = widgets[idx];
-              if (!w) return null;
-              return (
-                <div className="bg-gray-800 rounded-lg border border-yellow-500 opacity-80">
-                  <WidgetBox
-                    widget={w}
-                    index={idx}
-                    openInNewTab={openInNewTab}
-                    removeWidget={removeWidget}
-                    Component={widgetComponents[w.type].component}
-                  />
-                </div>
-              );
-            })()
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+        {layout.spans!.map((span, index) => (
+          <div
+            key={`cell-${index}`}
+            style={{
+              gridColumn: `${span.col + 1} / span ${span.colSpan}`,
+              gridRow: `${span.row + 1} / span ${span.rowSpan}`,
+            }}
+          >
+            <WidgetCell
+              index={index}
+              widget={widgets[index]}
+              showContextMenu={showContextMenu}
+              openInNewTab={openInNewTab}
+              removeWidget={removeWidget}
+            />
+          </div>
+        ))}
+      </div>
     );
   };
 
