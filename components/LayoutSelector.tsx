@@ -27,7 +27,6 @@ const layouts: LayoutType[] = [
   { id: "2x2", rows: 2, cols: 2 },
   { id: "2x3", rows: 2, cols: 3 },
   { id: "3x2", rows: 3, cols: 2 },
-
   {
     id: "2col-span-right",
     rows: 2,
@@ -38,7 +37,6 @@ const layouts: LayoutType[] = [
       { row: 0, col: 1, rowSpan: 2, colSpan: 1 },
     ],
   },
-
   {
     id: "2col-span-left",
     rows: 2,

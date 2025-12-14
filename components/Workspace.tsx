@@ -383,7 +383,6 @@ const Workspace: React.FC<WorkspaceProps> = ({ layout, onReset }) => {
         }
 
         case "2X3-complex": {
-          // Left full height, top-center, top-right, bottom spanning center+right
           const [left, topCenter, topRight, bottom] = [0, 1, 2, 3];
           return (
             <PanelGroup direction="horizontal" className="h-full">
@@ -415,7 +414,6 @@ const Workspace: React.FC<WorkspaceProps> = ({ layout, onReset }) => {
         }
 
         case "3x3-complex": {
-          // Complex 3x3 layout
           const [topLeft, topRight, middleLeft, middleCenter, bottomLeft, bottomRight] = [0, 1, 2, 3, 4, 5];
           return (
             <PanelGroup direction="horizontal" className="h-full">
@@ -461,9 +459,7 @@ const Workspace: React.FC<WorkspaceProps> = ({ layout, onReset }) => {
             </PanelGroup>
           );
         }
-
         default:
-          // Fallback for unknown layouts
           return <div className="h-full flex items-center justify-center text-gray-400">Unknown layout</div>;
       }
     };
