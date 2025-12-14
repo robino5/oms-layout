@@ -1,4 +1,6 @@
 import React from "react";
+import ColorSelector from "./ColorSelector";
+import {MdOutlineOpenInNew } from "react-icons/md";
 
 type WidgetType = "chart" | "table" | "details" | "depth";
 
@@ -28,8 +30,9 @@ const WidgetBox: React.FC<WidgetBoxProps> = ({ widget, index, openInNewTab, remo
             }}
             className="text-yellow-400 hover:text-yellow-300 px-2"
           >
-            ↗
+            <MdOutlineOpenInNew size={20} color="white" />
           </button>
+          <ColorSelector widgetId={widget.id || `widget-${index}`} />
           <button
             title="Remove widget"
             onClick={() => removeWidget(index)}
