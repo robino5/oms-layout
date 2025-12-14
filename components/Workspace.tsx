@@ -6,7 +6,6 @@ import React, {
   useEffect,
   useRef,
   useState,
-  Fragment,
 } from "react";
 import {
   DndContext,
@@ -65,7 +64,7 @@ type WorkspaceProps = {
 */
 const widgetComponents: Record<
   WidgetType,
-  { component: React.ComponentType<any>; name: string }
+  { component: React.ComponentType; name: string }
 > = {
   chart: { component: ChartWidget, name: "Chart" },
   table: { component: StockPriceTable, name: "Stock Table" },
@@ -85,7 +84,7 @@ type DroppableCellProps = {
 };
 
 const DroppableCell: React.FC<DroppableCellProps> = React.memo(
-  ({ id, index, widget, showContextMenu, openInNewTab, removeWidget }) => {
+  function DroppableCell({ id, index, widget, showContextMenu, openInNewTab, removeWidget }) {
     const { setNodeRef, isOver } = useDroppable({ id });
     const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } =
       useDraggable({
@@ -95,17 +94,16 @@ const DroppableCell: React.FC<DroppableCellProps> = React.memo(
 
     const style = transform
       ? {
-          transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-          opacity: isDragging ? 0.5 : 1,
-        }
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        opacity: isDragging ? 0.5 : 1,
+      }
       : undefined;
 
     return (
       <div
         ref={setNodeRef}
-        className={`bg-gray-800 rounded-lg border ${
-          isOver ? "border-yellow-500 bg-gray-700" : "border-gray-700"
-        } relative overflow-hidden h-full`}
+        className={`bg-gray-800 rounded-lg border ${isOver ? "border-yellow-500 bg-gray-700" : "border-gray-700"
+          } relative overflow-hidden h-full`}
         onContextMenu={(e) => {
           e.preventDefault();
           showContextMenu(e, index);
@@ -183,7 +181,7 @@ const Workspace: React.FC<WorkspaceProps> = ({ layout, onReset }) => {
   }, [layout, widgets]);
 
   useEffect(() => {
-    const saved: any = getCookie("savedLayout");
+    const saved = getCookie("savedLayout") as { layout?: Layout; widgets?: WidgetItem[] } | null;
     if (
       saved &&
       saved.layout?.rows === layout.rows &&
