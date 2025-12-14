@@ -7,11 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  ResizablePanel,
-  ResizablePanelGroup,
-  ResizableHandle,
-} from "@/components/ui/resizable";
+import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 import { FaSave } from "react-icons/fa";
 import WidgetBox from "./WidgetBox";
 import { setCookie, getCookie } from "../utils/cookieUtils";
@@ -239,7 +235,7 @@ const Workspace: React.FC<WorkspaceProps> = ({ layout, onReset }) => {
         for (let c = 0; c < layout.cols; c++) {
           const index = r * layout.cols + c;
           colsInRow.push(
-            <ResizablePanel key={`cell-${index}`} defaultSize={100 / layout.cols} minSize={20}>
+            <Panel key={`cell-${index}`} defaultSize={100 / layout.cols} minSize={20}>
               <WidgetCell
                 index={index}
                 widget={widgets[index]}
@@ -247,11 +243,11 @@ const Workspace: React.FC<WorkspaceProps> = ({ layout, onReset }) => {
                 openInNewTab={openInNewTab}
                 removeWidget={removeWidget}
               />
-            </ResizablePanel>
+            </Panel>
           );
           if (c < layout.cols - 1) {
             colsInRow.push(
-              <ResizableHandle
+              <PanelResizeHandle
                 key={`resize-h-${r}-${c}`}
                 className="w-1 bg-gray-700 hover:bg-yellow-500 transition-colors"
               />
@@ -260,14 +256,14 @@ const Workspace: React.FC<WorkspaceProps> = ({ layout, onReset }) => {
         }
 
         rows.push(
-          <ResizablePanel key={`row-${r}`} defaultSize={100 / layout.rows} minSize={20}>
-            <ResizablePanelGroup direction="horizontal">{colsInRow}</ResizablePanelGroup>
-          </ResizablePanel>
+          <Panel key={`row-${r}`} defaultSize={100 / layout.rows} minSize={20}>
+            <PanelGroup direction="horizontal">{colsInRow}</PanelGroup>
+          </Panel>
         );
 
         if (r < layout.rows - 1) {
           rows.push(
-            <ResizableHandle
+            <PanelResizeHandle
               key={`resize-v-${r}`}
               className="h-1 bg-gray-700 hover:bg-yellow-500 transition-colors"
             />
@@ -276,40 +272,203 @@ const Workspace: React.FC<WorkspaceProps> = ({ layout, onReset }) => {
       }
 
       return (
-        <ResizablePanelGroup direction="vertical" className="h-full">
+        <PanelGroup direction="vertical" className="h-full">
           {rows}
-        </ResizablePanelGroup>
+        </PanelGroup>
       );
     }
 
-    // Span-based grid -> CSS grid
-    return (
-      <div
-        className="grid h-full gap-2"
-        style={{
-          gridTemplateColumns: `repeat(${layout.cols}, 1fr)`,
-          gridTemplateRows: `repeat(${layout.rows}, 1fr)`,
-        }}
-      >
-        {layout.spans!.map((span, index) => (
-          <div
-            key={`cell-${index}`}
-            style={{
-              gridColumn: `${span.col + 1} / span ${span.colSpan}`,
-              gridRow: `${span.row + 1} / span ${span.rowSpan}`,
-            }}
-          >
-            <WidgetCell
-              index={index}
-              widget={widgets[index]}
-              showContextMenu={showContextMenu}
-              openInNewTab={openInNewTab}
-              removeWidget={removeWidget}
-            />
-          </div>
-        ))}
-      </div>
-    );
+    // Span-based layouts -> create proper nested PanelGroup
+    const renderSpannedLayout = () => {
+      // Create specific nested structures based on layout ID
+      switch (layout.id) {
+        case "2col-span-right": {
+          // Left column split in 2, right column full height
+          const [topLeft, bottomLeft, right] = [0, 1, 2];
+          return (
+            <PanelGroup direction="horizontal" className="h-full">
+              <Panel defaultSize={50} minSize={20}>
+                <PanelGroup direction="vertical">
+                  <Panel defaultSize={50} minSize={20}>
+                    <WidgetCell index={topLeft} widget={widgets[topLeft]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                  </Panel>
+                  <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+                  <Panel defaultSize={50} minSize={20}>
+                    <WidgetCell index={bottomLeft} widget={widgets[bottomLeft]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                  </Panel>
+                </PanelGroup>
+              </Panel>
+              <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+              <Panel defaultSize={50} minSize={20}>
+                <WidgetCell index={right} widget={widgets[right]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+              </Panel>
+            </PanelGroup>
+          );
+        }
+
+        case "2col-span-left": {
+          // Left column full height, right column split in 2
+          const [topRight, bottomRight, left] = [0, 1, 2];
+          return (
+            <PanelGroup direction="horizontal" className="h-full">
+              <Panel defaultSize={50} minSize={20}>
+                <WidgetCell index={left} widget={widgets[left]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+              </Panel>
+              <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+              <Panel defaultSize={50} minSize={20}>
+                <PanelGroup direction="vertical">
+                  <Panel defaultSize={50} minSize={20}>
+                    <WidgetCell index={topRight} widget={widgets[topRight]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                  </Panel>
+                  <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+                  <Panel defaultSize={50} minSize={20}>
+                    <WidgetCell index={bottomRight} widget={widgets[bottomRight]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                  </Panel>
+                </PanelGroup>
+              </Panel>
+            </PanelGroup>
+          );
+        }
+
+        case "2col-span-top": {
+          // Top row full width, bottom row split in 2
+          const [top, bottomLeft, bottomRight] = [0, 2, 1];
+          return (
+            <PanelGroup direction="vertical" className="h-full">
+              <Panel defaultSize={50} minSize={20}>
+                <WidgetCell index={top} widget={widgets[top]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+              </Panel>
+              <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+              <Panel defaultSize={50} minSize={20}>
+                <PanelGroup direction="horizontal">
+                  <Panel defaultSize={50} minSize={20}>
+                    <WidgetCell index={bottomLeft} widget={widgets[bottomLeft]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                  </Panel>
+                  <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+                  <Panel defaultSize={50} minSize={20}>
+                    <WidgetCell index={bottomRight} widget={widgets[bottomRight]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                  </Panel>
+                </PanelGroup>
+              </Panel>
+            </PanelGroup>
+          );
+        }
+
+        case "3 col-span-top": {
+          // Top row 3 columns, bottom row full width
+          const [topLeft, topCenter, topRight, bottom] = [0, 1, 2, 3];
+          return (
+            <PanelGroup direction="vertical" className="h-full">
+              <Panel defaultSize={50} minSize={20}>
+                <PanelGroup direction="horizontal">
+                  <Panel defaultSize={33.33} minSize={20}>
+                    <WidgetCell index={topLeft} widget={widgets[topLeft]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                  </Panel>
+                  <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+                  <Panel defaultSize={33.33} minSize={20}>
+                    <WidgetCell index={topCenter} widget={widgets[topCenter]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                  </Panel>
+                  <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+                  <Panel defaultSize={33.33} minSize={20}>
+                    <WidgetCell index={topRight} widget={widgets[topRight]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                  </Panel>
+                </PanelGroup>
+              </Panel>
+              <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+              <Panel defaultSize={50} minSize={20}>
+                <WidgetCell index={bottom} widget={widgets[bottom]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+              </Panel>
+            </PanelGroup>
+          );
+        }
+
+        case "2X3-complex": {
+          // Left full height, top-center, top-right, bottom spanning center+right
+          const [left, topCenter, topRight, bottom] = [0, 1, 2, 3];
+          return (
+            <PanelGroup direction="horizontal" className="h-full">
+              <Panel defaultSize={33.33} minSize={20}>
+                <WidgetCell index={left} widget={widgets[left]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+              </Panel>
+              <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+              <Panel defaultSize={66.67} minSize={20}>
+                <PanelGroup direction="vertical">
+                  <Panel defaultSize={50} minSize={20}>
+                    <PanelGroup direction="horizontal">
+                      <Panel defaultSize={50} minSize={20}>
+                        <WidgetCell index={topCenter} widget={widgets[topCenter]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                      </Panel>
+                      <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+                      <Panel defaultSize={50} minSize={20}>
+                        <WidgetCell index={topRight} widget={widgets[topRight]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                      </Panel>
+                    </PanelGroup>
+                  </Panel>
+                  <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+                  <Panel defaultSize={50} minSize={20}>
+                    <WidgetCell index={bottom} widget={widgets[bottom]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                  </Panel>
+                </PanelGroup>
+              </Panel>
+            </PanelGroup>
+          );
+        }
+
+        case "3x3-complex": {
+          // Complex 3x3 layout
+          const [topLeft, topRight, middleLeft, middleCenter, bottomLeft, bottomRight] = [0, 1, 2, 3, 4, 5];
+          return (
+            <PanelGroup direction="horizontal" className="h-full">
+              <Panel defaultSize={66.67} minSize={20}>
+                <PanelGroup direction="vertical">
+                  <Panel defaultSize={33.33} minSize={20}>
+                    <WidgetCell index={topLeft} widget={widgets[topLeft]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                  </Panel>
+                  <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+                  <Panel defaultSize={66.67} minSize={20}>
+                    <PanelGroup direction="horizontal">
+                      <Panel defaultSize={50} minSize={20}>
+                        <PanelGroup direction="vertical">
+                          <Panel defaultSize={50} minSize={20}>
+                            <WidgetCell index={middleLeft} widget={widgets[middleLeft]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                          </Panel>
+                          <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+                          <Panel defaultSize={50} minSize={20}>
+                            <WidgetCell index={bottomLeft} widget={widgets[bottomLeft]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                          </Panel>
+                        </PanelGroup>
+                      </Panel>
+                      <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+                      <Panel defaultSize={50} minSize={20}>
+                        <WidgetCell index={middleCenter} widget={widgets[middleCenter]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                      </Panel>
+                    </PanelGroup>
+                  </Panel>
+                </PanelGroup>
+              </Panel>
+              <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+              <Panel defaultSize={33.33} minSize={20}>
+                <PanelGroup direction="vertical">
+                  <Panel defaultSize={66.67} minSize={20}>
+                    <WidgetCell index={topRight} widget={widgets[topRight]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                  </Panel>
+                  <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-yellow-500 transition-colors" />
+                  <Panel defaultSize={33.33} minSize={20}>
+                    <WidgetCell index={bottomRight} widget={widgets[bottomRight]} showContextMenu={showContextMenu} openInNewTab={openInNewTab} removeWidget={removeWidget} />
+                  </Panel>
+                </PanelGroup>
+              </Panel>
+            </PanelGroup>
+          );
+        }
+
+        default:
+          // Fallback for unknown layouts
+          return <div className="h-full flex items-center justify-center text-gray-400">Unknown layout</div>;
+      }
+    };
+
+    return renderSpannedLayout();
   };
 
   /* ------------------ Render ------------------ */
